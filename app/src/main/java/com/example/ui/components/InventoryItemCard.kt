@@ -19,14 +19,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -55,6 +59,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.data.model.InventoryItem
+import com.example.ui.ItemReplenishmentInfo
 import com.example.ui.theme.LowStockRed
 import com.example.ui.theme.StockGreen
 import com.example.ui.theme.VibrantGreenContainer
@@ -69,10 +74,17 @@ fun InventoryItemCard(
     onClick: () -> Unit,
     onEdit: () -> Unit,
     onAdjustStock: (delta: Int) -> Unit,
+    onCheckIn: (() -> Unit)? = null,
+    replenishmentInfo: ItemReplenishmentInfo? = null,
+    onOrderRestock: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     var barcodeBitmap by remember(item.newCode) { mutableStateOf<Bitmap?>(null) }
+
+    val onTheWayQty = replenishmentInfo?.onTheWayQuantity ?: 0
+    val isOnTheWayCovered = replenishmentInfo?.isOnTheWayCovered == true
+    val isNeedsPurchase = replenishmentInfo?.isNeedsPurchase ?: item.isLowStock
 
     LaunchedEffect(item.newCode) {
         barcodeBitmap = BarcodeGenerator.generateBarcodeBitmap(item.newCode, width = 400, height = 110)
@@ -143,17 +155,19 @@ fun InventoryItemCard(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = MaterialTheme.colorScheme.secondaryContainer
-                        ) {
-                            Text(
-                                text = "Old: ${item.oldCode}",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
+                        if (item.oldCode.isNotBlank()) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer
+                            ) {
+                                Text(
+                                    text = "Old: ${item.oldCode}",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
                         }
 
                         Surface(
@@ -227,6 +241,51 @@ fun InventoryItemCard(
                 )
             }
 
+            // Replenishment "On The Way" status banner
+            if (onTheWayQty > 0) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isOnTheWayCovered) {
+                        MaterialTheme.colorScheme.tertiaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.secondaryContainer
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LocalShipping,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = if (isOnTheWayCovered) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "ON THE WAY: +$onTheWayQty ${item.unit}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isOnTheWayCovered) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            val poList = replenishmentInfo?.pendingOrderNumbers?.joinToString(", ") ?: ""
+                            Text(
+                                text = if (isOnTheWayCovered) {
+                                    "Replenishment scheduled${if (poList.isNotEmpty()) " in $poList" else ""} • No purchase needed"
+                                } else {
+                                    "Partial shipment incoming${if (poList.isNotEmpty()) " in $poList" else ""}"
+                                },
+                                fontSize = 11.sp,
+                                color = if (isOnTheWayCovered) MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f)
+                            )
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(10.dp))
 
             // Barcode graphic render
@@ -262,48 +321,102 @@ fun InventoryItemCard(
                         modifier = Modifier
                             .size(10.dp)
                             .clip(CircleShape)
-                            .background(if (item.isLowStock) LowStockRed else StockGreen)
+                            .background(
+                                when {
+                                    !item.isLowStock -> StockGreen
+                                    isOnTheWayCovered -> MaterialTheme.colorScheme.tertiary
+                                    else -> LowStockRed
+                                }
+                            )
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "${item.quantity} ${item.unit}",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (item.isLowStock) LowStockRed else MaterialTheme.colorScheme.onSurface
+                        color = when {
+                            !item.isLowStock -> MaterialTheme.colorScheme.onSurface
+                            isOnTheWayCovered -> MaterialTheme.colorScheme.tertiary
+                            else -> LowStockRed
+                        }
                     )
+
                     if (item.isLowStock) {
                         Spacer(modifier = Modifier.width(6.dp))
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = VibrantRedContainer
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        if (isOnTheWayCovered) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = MaterialTheme.colorScheme.tertiaryContainer
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Warning,
-                                    contentDescription = null,
-                                    tint = VibrantOnRedContainer,
-                                    modifier = Modifier.size(12.dp)
-                                )
-                                Spacer(modifier = Modifier.width(3.dp))
                                 Text(
-                                    text = "LOW (Min: ${item.minThreshold})",
+                                    text = "LOW (INCOMING)",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = VibrantOnRedContainer
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
+                            }
+                        } else {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = VibrantRedContainer
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = null,
+                                        tint = VibrantOnRedContainer,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        text = "NEEDS PO (Min: ${item.minThreshold})",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = VibrantOnRedContainer
+                                    )
+                                }
                             }
                         }
                     }
                 }
 
-                // Stock Adjustment +/- Buttons
+                // Stock Adjustment & Action Buttons
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
+                    if (onOrderRestock != null && isNeedsPurchase) {
+                        FilledTonalIconButton(
+                            onClick = onOrderRestock,
+                            modifier = Modifier.size(34.dp).testTag("order_restock_${item.id}")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ShoppingCart,
+                                contentDescription = "Register Purchase Order",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+
+                    if (onCheckIn != null) {
+                        FilledTonalIconButton(
+                            onClick = onCheckIn,
+                            modifier = Modifier.size(34.dp).testTag("checkin_item_${item.id}")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Download,
+                                contentDescription = "Check-In Stock",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+
                     FilledTonalIconButton(
                         onClick = { onAdjustStock(-1) },
                         enabled = item.quantity > 0,

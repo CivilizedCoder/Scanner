@@ -27,6 +27,21 @@ interface OrderDao {
     fun getAllOrders(): Flow<List<OrderWithItems>>
 
     @Transaction
+    @Query("SELECT * FROM orders WHERE orderType = 'PURCHASE' AND status != 'COMPLETED' AND status != 'CANCELLED' ORDER BY createdAt DESC")
+    fun getActivePurchaseOrders(): Flow<List<OrderWithItems>>
+
+    @Transaction
+    @Query("SELECT * FROM orders WHERE orderType = 'PURCHASE' ORDER BY createdAt DESC")
+    fun getAllPurchaseOrders(): Flow<List<OrderWithItems>>
+
+    @Transaction
+    @Query("SELECT * FROM orders WHERE orderType != 'PURCHASE' ORDER BY createdAt DESC")
+    fun getAllPullOrders(): Flow<List<OrderWithItems>>
+
+    @Query("SELECT * FROM orders")
+    suspend fun getAllOrdersList(): List<Order>
+
+    @Transaction
     @Query("SELECT * FROM orders WHERE orderId = :orderId LIMIT 1")
     fun getOrderWithItemsFlow(orderId: Long): Flow<OrderWithItems?>
 
@@ -39,6 +54,9 @@ interface OrderDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrder(order: Order): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrderItem(item: OrderItem): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrderItems(items: List<OrderItem>)
@@ -54,6 +72,12 @@ interface OrderDao {
 
     @Delete
     suspend fun deleteOrder(order: Order)
+
+    @Delete
+    suspend fun deleteOrderItem(item: OrderItem)
+
+    @Query("DELETE FROM order_items WHERE orderItemId = :orderItemId")
+    suspend fun deleteOrderItemById(orderItemId: Long)
 
     @Query("DELETE FROM order_items WHERE orderId = :orderId")
     suspend fun deleteOrderItems(orderId: Long)

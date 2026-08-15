@@ -10,12 +10,24 @@ data class Order(
     @PrimaryKey(autoGenerate = true)
     val orderId: Long = 0,
     val orderNumber: String,
-    val customerName: String,
-    val destination: String,
-    val status: String = "PENDING", // PENDING, IN_PROGRESS, COMPLETED
+    val customerName: String, // Supplier / Vendor if orderType == "PURCHASE", Customer if "PULL"
+    val destination: String,  // Receiving Dock / Bin if "PURCHASE", Delivery Dock / Customer destination if "PULL"
+    val orderType: String = "PULL", // "PULL" (Outbound Pick list) or "PURCHASE" (Inbound Replenishment / Supplier Order)
+    val status: String = "PENDING", // PENDING, IN_TRANSIT, IN_PROGRESS, COMPLETED, CANCELLED
+    val expectedDeliveryDate: String? = null,
+    val notes: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val completedAt: Long? = null
-)
+) {
+    val isPurchaseOrder: Boolean
+        get() = orderType == "PURCHASE"
+
+    val isPullOrder: Boolean
+        get() = orderType != "PURCHASE"
+
+    val isInTransit: Boolean
+        get() = isPurchaseOrder && (status == "PENDING" || status == "IN_TRANSIT" || status == "IN_PROGRESS")
+}
 
 @Entity(
     tableName = "order_items",
@@ -37,9 +49,13 @@ data class OrderItem(
     val commonName: String,
     val barcode: String,
     val location: String,
-    val quantityRequired: Int,
-    val quantityPulled: Int = 0
+    val quantityRequired: Int, // Ordered / Target quantity
+    val quantityPulled: Int = 0 // Pulled for pull order, or Received for purchase order
 ) {
     val isFulfilled: Boolean
         get() = quantityPulled >= quantityRequired
+
+    val remainingQuantity: Int
+        get() = (quantityRequired - quantityPulled).coerceAtLeast(0)
 }
+

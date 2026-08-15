@@ -27,12 +27,15 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.Warning
@@ -46,6 +49,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -82,6 +86,9 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.data.model.InventoryItem
 import com.example.ui.MainViewModel
+import com.example.ui.ScannerMode
+import com.example.ui.ScreenTab
+import com.example.ui.components.CheckInSheet
 import com.example.ui.components.InventoryItemCard
 import com.example.ui.theme.LowStockRed
 import com.example.ui.theme.StockGreen
@@ -96,9 +103,15 @@ fun InventoryListScreen(
     val items by viewModel.inventoryItems.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val filterLowStock by viewModel.filterLowStockOnly.collectAsStateWithLifecycle()
+    val filterNeedsPurchase by viewModel.filterNeedsPurchaseOnly.collectAsStateWithLifecycle()
+    val filterOnTheWay by viewModel.filterOnTheWayOnly.collectAsStateWithLifecycle()
     val selectedLocation by viewModel.selectedLocationFilter.collectAsStateWithLifecycle()
     val allLocations by viewModel.allLocations.collectAsStateWithLifecycle()
     val lowStockCount by viewModel.lowStockCount.collectAsStateWithLifecycle()
+    val needsPurchaseCount by viewModel.needsPurchaseCount.collectAsStateWithLifecycle()
+    val onTheWayCount by viewModel.onTheWayCount.collectAsStateWithLifecycle()
+    val replenishmentInfoMap by viewModel.replenishmentInfoMap.collectAsStateWithLifecycle()
+    val checkInPrompt by viewModel.checkInPrompt.collectAsStateWithLifecycle()
 
     var showDetailItem by remember { mutableStateOf<InventoryItem?>(null) }
     var showExportMenu by remember { mutableStateOf(false) }
@@ -142,45 +155,65 @@ fun InventoryListScreen(
                     )
                 }
 
-                // Export Quick Menu Button
-                Box {
-                    Button(
-                        onClick = { showExportMenu = true },
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                        modifier = Modifier.testTag("export_menu_btn"),
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilledTonalButton(
+                        onClick = {
+                            viewModel.setScannerMode(ScannerMode.CHECK_IN)
+                            viewModel.setTab(ScreenTab.LIVE_SCANNER)
+                        },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        modifier = Modifier.testTag("checkin_shortcut_btn"),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.FileDownload,
+                            imageVector = Icons.Default.Download,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp)
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Export", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Check-In", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
 
-                    DropdownMenu(
-                        expanded = showExportMenu,
-                        onDismissRequest = { showExportMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Export CSV Spreadsheet") },
-                            leadingIcon = { Icon(Icons.Default.TableChart, contentDescription = null) },
-                            onClick = {
-                                showExportMenu = false
-                                viewModel.exportCsv()
-                            },
-                            modifier = Modifier.testTag("export_csv_action")
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Export PDF Stock Report") },
-                            leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null) },
-                            onClick = {
-                                showExportMenu = false
-                                viewModel.exportPdf()
-                            },
-                            modifier = Modifier.testTag("export_pdf_action")
-                        )
+                    // Export Quick Menu Button
+                    Box {
+                        Button(
+                            onClick = { showExportMenu = true },
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = Modifier.testTag("export_menu_btn"),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FileDownload,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Export", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        DropdownMenu(
+                            expanded = showExportMenu,
+                            onDismissRequest = { showExportMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Export CSV Spreadsheet") },
+                                leadingIcon = { Icon(Icons.Default.TableChart, contentDescription = null) },
+                                onClick = {
+                                    showExportMenu = false
+                                    viewModel.exportCsv()
+                                },
+                                modifier = Modifier.testTag("export_csv_action")
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Export PDF Stock Report") },
+                                leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null) },
+                                onClick = {
+                                    showExportMenu = false
+                                    viewModel.exportPdf()
+                                },
+                                modifier = Modifier.testTag("export_pdf_action")
+                            )
+                        }
                     }
                 }
             }
@@ -214,34 +247,81 @@ fun InventoryListScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Filter Chips Row (Low Stock Alert Filter & Location Filter)
+            // Filter Chips Row (Low Stock, Needs Purchase, On The Way, and Location Filter)
             LazyRow(
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Low Stock Filter Chip
+                // Needs Purchase Filter Chip (Critical low stock items with NO order on the way)
                 item {
                     FilterChip(
-                        selected = filterLowStock,
-                        onClick = { viewModel.filterLowStockOnly.value = !filterLowStock },
+                        selected = filterNeedsPurchase,
+                        onClick = {
+                            viewModel.filterNeedsPurchaseOnly.value = !filterNeedsPurchase
+                            if (viewModel.filterNeedsPurchaseOnly.value) {
+                                viewModel.filterOnTheWayOnly.value = false
+                                viewModel.filterLowStockOnly.value = false
+                            }
+                        },
                         label = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     imageVector = Icons.Default.Warning,
                                     contentDescription = null,
                                     modifier = Modifier.size(14.dp),
-                                    tint = if (filterLowStock) MaterialTheme.colorScheme.onPrimary else LowStockRed
+                                    tint = if (filterNeedsPurchase) MaterialTheme.colorScheme.onPrimary else LowStockRed
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Low Stock ($lowStockCount)")
+                                Text("Needs Purchase ($needsPurchaseCount)")
                             }
                         },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = LowStockRed,
                             selectedLabelColor = Color.White
                         ),
+                        modifier = Modifier.testTag("filter_needs_purchase_chip")
+                    )
+                }
+
+                // On The Way Filter Chip (Replenishment in transit from Purchase Orders)
+                item {
+                    FilterChip(
+                        selected = filterOnTheWay,
+                        onClick = {
+                            viewModel.filterOnTheWayOnly.value = !filterOnTheWay
+                            if (viewModel.filterOnTheWayOnly.value) {
+                                viewModel.filterNeedsPurchaseOnly.value = false
+                                viewModel.filterLowStockOnly.value = false
+                            }
+                        },
+                        label = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "🚚 On The Way ($onTheWayCount)",
+                                    fontWeight = if (filterOnTheWay) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        },
+                        modifier = Modifier.testTag("filter_on_the_way_chip")
+                    )
+                }
+
+                // Low Stock Filter Chip
+                item {
+                    FilterChip(
+                        selected = filterLowStock,
+                        onClick = {
+                            viewModel.filterLowStockOnly.value = !filterLowStock
+                            if (viewModel.filterLowStockOnly.value) {
+                                viewModel.filterNeedsPurchaseOnly.value = false
+                                viewModel.filterOnTheWayOnly.value = false
+                            }
+                        },
+                        label = {
+                            Text("All Low Stock ($lowStockCount)")
+                        },
                         modifier = Modifier.testTag("filter_low_stock_chip")
                     )
                 }
@@ -313,14 +393,19 @@ fun InventoryListScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = if (filterLowStock) "No Low Stock Items" else "No Inventory Items Found",
+                            text = when {
+                                filterNeedsPurchase -> "No Items Needing Purchase Orders"
+                                filterOnTheWay -> "No Items Currently On The Way"
+                                filterLowStock -> "No Low Stock Items"
+                                else -> "No Inventory Items Found"
+                            },
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Tap '+ Add Stock' or use the Camera Barcode Scanner to add new warehouse items.",
+                            text = "Tap '+ Add Stock' or register an Inbound Purchase Order to restock warehouse items.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
                             fontSize = 13.sp
@@ -340,12 +425,20 @@ fun InventoryListScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(items, key = { it.id }) { item ->
+                        val replInfo = replenishmentInfoMap[item.id]
                         InventoryItemCard(
                             item = item,
                             onClick = { showDetailItem = item },
                             onEdit = { viewModel.openEditItem(item) },
                             onAdjustStock = { delta ->
                                 viewModel.adjustItemStock(item, delta)
+                            },
+                            onCheckIn = {
+                                viewModel.openCheckInForItem(item, 1)
+                            },
+                            replenishmentInfo = replInfo,
+                            onOrderRestock = {
+                                viewModel.setTab(ScreenTab.ORDER_PULLING)
                             }
                         )
                     }
@@ -356,8 +449,10 @@ fun InventoryListScreen(
 
     // Detailed Item Bottom Sheet (Shows full barcode, old/new codes, location, and quick actions)
     showDetailItem?.let { item ->
+        val replInfo = replenishmentInfoMap[item.id]
         ItemDetailSheet(
             item = item,
+            replenishmentInfo = replInfo,
             onDismiss = { showDetailItem = null },
             onEdit = {
                 showDetailItem = null
@@ -365,6 +460,29 @@ fun InventoryListScreen(
             },
             onAdjust = { delta ->
                 viewModel.adjustItemStock(item, delta)
+            },
+            onCheckIn = {
+                showDetailItem = null
+                viewModel.openCheckInForItem(item, 1)
+            }
+        )
+    }
+
+    // Modal Check-In Bottom Sheet
+    checkInPrompt?.let { prompt ->
+        CheckInSheet(
+            item = prompt.item,
+            initialQty = prompt.initialQty,
+            defaultLocation = prompt.defaultLocation,
+            onDismiss = { viewModel.closeCheckInPrompt() },
+            onConfirmCheckIn = { qty, location, ref, notes ->
+                viewModel.confirmCheckIn(
+                    itemId = prompt.item.id,
+                    quantityReceived = qty,
+                    updatedLocation = location,
+                    referenceDoc = ref,
+                    notes = notes
+                )
             }
         )
     }
@@ -374,13 +492,18 @@ fun InventoryListScreen(
 @Composable
 fun ItemDetailSheet(
     item: InventoryItem,
+    replenishmentInfo: com.example.ui.ItemReplenishmentInfo? = null,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
-    onAdjust: (Int) -> Unit
+    onAdjust: (Int) -> Unit,
+    onCheckIn: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
     var barcodeBitmap by remember(item.newCode) { mutableStateOf<Bitmap?>(null) }
+
+    val onTheWayQty = replenishmentInfo?.onTheWayQuantity ?: 0
+    val isOnTheWayCovered = replenishmentInfo?.isOnTheWayCovered == true
 
     LaunchedEffect(item.newCode) {
         barcodeBitmap = BarcodeGenerator.generateBarcodeBitmap(item.newCode, width = 600, height = 180)
@@ -464,6 +587,38 @@ fun ItemDetailSheet(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            // Inbound Shipment / Replenishment status
+            if (onTheWayQty > 0) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isOnTheWayCovered) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.secondaryContainer,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "🚚 ON THE WAY: +$onTheWayQty ${item.unit}",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = if (isOnTheWayCovered) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        val poStr = replenishmentInfo?.pendingOrderNumbers?.joinToString(", ") ?: ""
+                        Text(
+                            text = if (isOnTheWayCovered) {
+                                "Covered by incoming Purchase Order(s): $poStr.\nNo additional purchases needed."
+                            } else {
+                                "Incoming Purchase Order(s): $poStr.\nRemaining deficit to reach minimum threshold."
+                            },
+                            fontSize = 12.sp,
+                            color = if (isOnTheWayCovered) MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.9f) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.9f)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
 
             // Codes Card (Old Code & New Code)
             Card(
@@ -562,14 +717,41 @@ fun ItemDetailSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            Button(
-                onClick = onEdit,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(12.dp)
+            // Check-In and Edit Actions
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text("Edit Stock Details")
+                Button(
+                    onClick = onCheckIn,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                        .testTag("detail_sheet_checkin_btn"),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Check-In Stock", fontWeight = FontWeight.Bold)
+                }
+
+                FilledTonalButton(
+                    onClick = onEdit,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                        .testTag("detail_sheet_edit_btn"),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Edit Details")
+                }
             }
 
             Spacer(modifier = Modifier.height(20.dp))

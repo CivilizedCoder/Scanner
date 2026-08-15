@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
         OrderItem::class,
         StockLog::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -97,7 +97,7 @@ abstract class AppDatabase : RoomDatabase() {
                     commonName = "Nitrile O-Ring Seal 70A (50mm ID)",
                     oldCode = "ORG-5070",
                     newCode = "918273645019",
-                    quantity = 8, // Low stock on purpose for testing alerts
+                    quantity = 8, // Low stock on purpose
                     location = "Aisle 02 - Rack A - Shelf 03 - Bin 09",
                     minThreshold = 25,
                     unit = "pcs",
@@ -177,12 +177,14 @@ abstract class AppDatabase : RoomDatabase() {
                 )
             }
 
-            // Create 2 realistic starter orders for immediate order pulling testing
+            // Starter Orders starting sequentially from 33100
+            // Order 33100 (Outbound Pull Order)
             val order1Id = orderDao.insertOrder(
                 Order(
-                    orderNumber = "ORD-8942",
+                    orderNumber = "ORD-33100",
                     customerName = "Apex Manufacturing Corp",
                     destination = "Dock 3 / Outbound Freight",
+                    orderType = "PULL",
                     status = "PENDING"
                 )
             )
@@ -218,11 +220,13 @@ abstract class AppDatabase : RoomDatabase() {
                 )
             )
 
+            // Order 33101 (Outbound Pull Order)
             val order2Id = orderDao.insertOrder(
                 Order(
-                    orderNumber = "ORD-9104",
+                    orderNumber = "ORD-33101",
                     customerName = "Cascade Robotics Ltd",
                     destination = "Express Air Dispatch",
+                    orderType = "PULL",
                     status = "IN_PROGRESS"
                 )
             )
@@ -244,6 +248,41 @@ abstract class AppDatabase : RoomDatabase() {
                         barcode = sampleItems[5].newCode,
                         location = sampleItems[5].location,
                         quantityRequired = 6,
+                        quantityPulled = 0
+                    )
+                )
+            )
+
+            // Order 33102 (Inbound Replenishment / Purchase Order for Low-Stock Items on the way)
+            val poId = orderDao.insertOrder(
+                Order(
+                    orderNumber = "PO-33102",
+                    customerName = "SealTech Global Supplies",
+                    destination = "Dock 2 - Receiving Bay",
+                    orderType = "PURCHASE",
+                    status = "IN_TRANSIT",
+                    expectedDeliveryDate = "In 2 days",
+                    notes = "Scheduled replenishment for O-Rings and Tubing"
+                )
+            )
+            orderDao.insertOrderItems(
+                listOf(
+                    OrderItem(
+                        orderId = poId,
+                        inventoryItemId = insertedIds[2], // Nitrile O-Ring Seal (on hand: 8, min: 25) -> on the way: 50 -> covered!
+                        commonName = sampleItems[2].commonName,
+                        barcode = sampleItems[2].newCode,
+                        location = sampleItems[2].location,
+                        quantityRequired = 50,
+                        quantityPulled = 0
+                    ),
+                    OrderItem(
+                        orderId = poId,
+                        inventoryItemId = insertedIds[4], // Polyurethane Tubing (on hand: 5, min: 10) -> on the way: 20 -> covered!
+                        commonName = sampleItems[4].commonName,
+                        barcode = sampleItems[4].newCode,
+                        location = sampleItems[4].location,
+                        quantityRequired = 20,
                         quantityPulled = 0
                     )
                 )

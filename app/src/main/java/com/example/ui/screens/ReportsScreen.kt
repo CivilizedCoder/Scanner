@@ -307,8 +307,8 @@ fun LogItemRow(log: StockLog, timeFormat: SimpleDateFormat) {
                         .clip(CircleShape)
                         .background(
                             when (log.actionType) {
+                                "CHECK_IN", "RESTOCK" -> VibrantGreenContainer
                                 "ORDER_PULL" -> MaterialTheme.colorScheme.secondaryContainer
-                                "RESTOCK" -> VibrantGreenContainer
                                 else -> MaterialTheme.colorScheme.surfaceVariant
                             }
                         ),
@@ -319,8 +319,8 @@ fun LogItemRow(log: StockLog, timeFormat: SimpleDateFormat) {
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = when (log.actionType) {
+                            "CHECK_IN", "RESTOCK" -> VibrantOnGreenContainer
                             "ORDER_PULL" -> MaterialTheme.colorScheme.onSecondaryContainer
-                            "RESTOCK" -> VibrantOnGreenContainer
                             else -> MaterialTheme.colorScheme.onSurfaceVariant
                         }
                     )
