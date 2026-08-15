@@ -1,0 +1,6 @@
+{
+  "name": "Inventory & Order Pulling",
+  "description": "Warehouse inventory management with real-time barcode scanning, order picking, low-stock push notifications, and CSV/PDF export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
